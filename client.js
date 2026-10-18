@@ -437,7 +437,10 @@ window.__ModuleLoader__.load({
       var messages = React.useMemo(function () { return projectMessages(team); }, [team]);
 
       var layout = React.useMemo(function () {
-        return layoutTasks(tasks, 0);
+        // Minimum canvas width: 3-lane natural width (720px). With zero tasks
+        // the columns calc would otherwise collapse the canvas to 40px wide,
+        // which is what made the whole task area blank in the screenshot.
+        return layoutTasks(tasks, 720);
       }, [tasks]);
 
       var memberPositions = React.useMemo(function () {
