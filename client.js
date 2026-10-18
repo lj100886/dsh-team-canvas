@@ -1,4 +1,4 @@
-﻿/**
+/**
  * dsh-team-canvas 鈥?Agent Teams 鍙鍖栭潰鏉匡紙Client 绔級
  *
  * 甯冨眬绠楁硶涓庤繛绾跨粯鍒剁Щ妞嶈嚜 cc-haha 寮€婧愬疄鐜帮細
@@ -96,7 +96,8 @@ window.__ModuleLoader__.load({
           isLead: isLead,
           phase: member.phase,
           state: state,
-          error: member.error
+          error: member.error,
+          inbox: 0
         };
       });
     }
@@ -683,7 +684,7 @@ window.__ModuleLoader__.load({
           }, '#' + x.id);
         });
         var stateText = p.isLead
-          ? t('coordinating') + ' 路 ' + t('inbox') + ' ' + p.member.inbox
+          ? t('coordinating') + ' · ' + t('inbox') + ' ' + (p.member.inbox == null ? 0 : p.member.inbox)
           : (p.member.state === 'working' ? t('stateWorking') : t('stateIdle'));
         return h('div', {
           key: 'member-' + p.member.id,
