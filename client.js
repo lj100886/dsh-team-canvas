@@ -62,8 +62,6 @@ window.__ModuleLoader__.load({
     /* 鎴愬憳閰嶈壊锛氭寜鍚嶅唽椤哄簭鍙栬壊锛屼繚璇佸悓涓€鎴愬憳鍦ㄤ笉鍚屼細璇濋噷棰滆壊绋冲畾銆?*/
     var ACCENTS = ['#2563eb', '#0891b2', '#7c3aed', '#dc2626', '#16a34a', '#d97706', '#db2777', '#0d9488'];
 
-    /* 绌鸿繍琛屾€佸父閲忥細閫夋嫨鍣ㄨ繑鍥炵ǔ瀹氬紩鐢紝閬垮厤姣忔娓叉煋閮借Е鍙戞洿鏂般€?*/
-    var EMPTY_RUNNING = {};
 
     /* 澶村儚锛氶槦闀垮浐瀹氾紝鍏朵綑鎸夎鑹插悕鍏抽敭璇嶆寫涓€涓紝鎸戜笉鍒板氨鎸夊簭鍙疯疆鎹€?*/
     var AVATARS = ['🤖', '👨‍💻', '🧪', '🔍', '👩‍💻', '🎨', '📦', '🛠️'];
@@ -412,19 +410,27 @@ window.__ModuleLoader__.load({
       });
 
       /* 鎴愬憳杩愯鎬侊細涓€娆￠€夋嫨鍣ㄨ瀹屾墍鏈夋垚鍛樹細璇濈殑 running 鏍囧織銆?*/
-      var runningMap = useSessions(function (state) {
-        if (!team || !Array.isArray(team.members)) return EMPTY_RUNNING;
-        var map = {};
-        team.members.forEach(function (member) {
-          var row = state.byId[member.id];
-          map[member.id] = row ? row.running === true : false;
-        });
-        return map;
+      // Selector returns a primitive so the store can compare it cheaply.
+      // "1" = running, "0" = idle, in roster order.
+      var runningSignature = useSessions(function (state) {
+        if (!team || !Array.isArray(team.members)) return '';
+        var out = '';
+        for (var i = 0; i < team.members.length; i += 1) {
+          var row = state.byId[team.members[i].id];
+          out += row && row.running === true ? '1' : '0';
+        }
+        return out;
       });
 
       var members = React.useMemo(function () {
+        var runningMap = {};
+        if (team && Array.isArray(team.members)) {
+          team.members.forEach(function (member, index) {
+            runningMap[member.id] = runningSignature.charAt(index) === '1';
+          });
+        }
         return projectMembers(team, runningMap);
-      }, [team, runningMap]);
+      }, [team, runningSignature]);
 
       var tasks = React.useMemo(function () { return projectTasks(team); }, [team]);
       var messages = React.useMemo(function () { return projectMessages(team); }, [team]);
@@ -847,7 +853,7 @@ window.__ModuleLoader__.load({
     };
 
     return {
-      inject: ['slots', 'locale', 'sessions'],
+      inject: ['slots', 'locale'],
       apply: function (ctx) {
         ctx.effect(function () {
           return ctx.locale.register(NS, 'zh', ZH);
