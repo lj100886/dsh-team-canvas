@@ -1,0 +1,43 @@
+{
+  "name": "dsh-team-canvas",
+  "version": "2.0.0",
+  "description": "Agent Teams 可视化面板 — 泳道看板 + 依赖 DAG 连线 + 通讯流，参考 cc-haha 开源实现",
+  "type": "module",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "agent-teams",
+    "visualization",
+    "dag"
+  ],
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
+    },
+    "compatibility": {
+      "dsh": ">=0.2.0"
+    }
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.18",
+    "dsh": ">=0.2.0"
+  }
+}

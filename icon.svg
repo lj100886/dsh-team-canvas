@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Agent Teams">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#1f2937"/>
+  <circle cx="32" cy="20" r="7" fill="#60a5fa"/>
+  <circle cx="17" cy="45" r="6" fill="#34d399"/>
+  <circle cx="32" cy="45" r="6" fill="#a78bfa"/>
+  <circle cx="47" cy="45" r="6" fill="#fbbf24"/>
+  <path d="M32 27 L32 34 M32 34 L17 39 M32 34 L32 39 M32 34 L47 39"
+        stroke="#94a3b8" stroke-width="2" stroke-dasharray="3 3" fill="none"/>
+</svg>

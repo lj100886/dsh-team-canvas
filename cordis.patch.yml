@@ -1,0 +1,6 @@
+# dsh-team-canvas — bundle patch layer
+- insert:
+    - id: team-canvas
+      name: 'dsh-team-canvas'
+      config:
+        enabled: true
