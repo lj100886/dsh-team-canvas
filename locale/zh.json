@@ -4,7 +4,7 @@
     "subtitle": "共享任务列表",
     "experimental": "实验特性",
     "play": "播放",
-    "openPanel": "打开 Agent Teams 面板",
+    "openPanel": "展开面板",
     "team": "团队",
     "teamHint": "队长居中，成员在下",
     "tasks": "共享任务列表",
@@ -38,7 +38,8 @@
     "legendFlight": "飞行中的消息/认领",
     "inbox": "收件箱",
     "coordinating": "协调 · 等待汇报",
-    "empty": "还没有团队成员。",
-    "close": "关闭"
+    "empty": "当前会话还没有 Agent Teams 团队。用 spawn_teammate 组建团队后，这里会显示成员、任务和依赖连线。",
+    "noTasks": "这个团队还没有共享任务。",
+    "noMessages": "投影暂不包含团队消息。"
   }
 }

@@ -4,9 +4,9 @@
     "subtitle": "Shared Tasks",
     "experimental": "Experimental",
     "play": "Play",
-    "openPanel": "Open the Agent Teams panel",
+    "openPanel": "Expand",
     "team": "Team",
-    "teamHint": "Lead centered, members below",
+    "teamHint": "Lead centred, members below",
     "tasks": "Shared task list",
     "tasksHint": "Layered by dependency, left → right",
     "laneNoDeps": "No dependencies · start now",
@@ -38,7 +38,8 @@
     "legendFlight": "Message / claim in flight",
     "inbox": "inbox",
     "coordinating": "Coordinating · awaiting reports",
-    "empty": "No team members yet.",
-    "close": "Close"
+    "empty": "No Agent Teams team in this session yet. Once you spawn teammates, their roster, tasks and dependency edges appear here.",
+    "noTasks": "This team has no shared tasks yet.",
+    "noMessages": "The projection does not carry team messages yet."
   }
 }

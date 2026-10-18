@@ -1,14 +1,12 @@
-/**
- * dsh-team-canvas — Agent Teams 可视化面板（Client 端）
+﻿/**
+ * dsh-team-canvas 鈥?Agent Teams 鍙鍖栭潰鏉匡紙Client 绔級
  *
- * 布局算法与连线绘制移植自 cc-haha 开源实现：
+ * 甯冨眬绠楁硶涓庤繛绾跨粯鍒剁Щ妞嶈嚜 cc-haha 寮€婧愬疄鐜帮細
  *   desktop/src/components/agentTeams/AgentTeamsCanvas.tsx
  *   desktop/src/components/agentTeams/agentTeamsModel.ts
  *
- * 核心做法：绝对定位画布 + 一层 SVG。卡片是 DOM，连线是 SVG path。
- * 依赖连线用三次贝塞尔从「前置任务右边缘」弯到「后继任务左边缘」，
- * 满足与否决定颜色与虚线样式——这正是 cc-haha 截图里那些虚线的来源。
- */
+ * 鏍稿績鍋氭硶锛氱粷瀵瑰畾浣嶇敾甯?+ 涓€灞?SVG銆傚崱鐗囨槸 DOM锛岃繛绾挎槸 SVG path銆? * 渚濊禆杩炵嚎鐢ㄤ笁娆¤礉濉炲皵浠庛€屽墠缃换鍔″彸杈圭紭銆嶅集鍒般€屽悗缁т换鍔″乏杈圭紭銆嶏紝
+ * 婊¤冻涓庡惁鍐冲畾棰滆壊涓庤櫄绾挎牱寮忊€斺€旇繖姝ｆ槸 cc-haha 鎴浘閲岄偅浜涜櫄绾跨殑鏉ユ簮銆? */
 window.__ModuleLoader__.load({
   id: 'dsh-team-canvas',
   factory(require) {
@@ -16,7 +14,7 @@ window.__ModuleLoader__.load({
     var h = React.createElement;
 
     /* ---------------------------------------------------------------- *
-     * 几何常量（cc-haha 原值）
+     * 鍑犱綍甯搁噺锛坈c-haha 鍘熷€硷級
      * ---------------------------------------------------------------- */
     var FORMATION_TITLE_Y = 8;
     var TASKS_TITLE_Y = 388;
@@ -39,39 +37,126 @@ window.__ModuleLoader__.load({
     var CANVAS_BOTTOM_PADDING = 24;
 
     /* ---------------------------------------------------------------- *
-     * 演示数据。字段名与 DSH Agent Teams 投影一致，便于后续接真实数据。
-     * ---------------------------------------------------------------- */
-    var TEAM_NAME = 'tally-squad';
+     * 鐪熷疄鏁版嵁锛氫粠褰撳墠浼氳瘽鐨?`agentTeam` 鎶曞奖璇诲彇銆?     *
+     * 鎶曞奖鐢?@deepseek-ai/dsh-experimental-agent-team 鍐欏叆 Session store锛?     * Client 绔€氳繃 useSessions 閫夋嫨鍣ㄨ鍙栵紝涓嶉渶瑕佷换浣?RPC銆?     *
+     * 鍏抽敭鐐癸細slot 鏄?session 浣滅敤鍩熺殑锛宲rops.sessionId 灏辨槸銆屽綋鍓嶈繖涓細璇濄€嶏紝
+     * 鎵€浠ヤ笉鍚屼細璇濇嬁鍒板悇鑷殑鎶曞奖锛屽ぉ鐒堕殧绂汇€?     * ---------------------------------------------------------------- */
 
-    var MEMBERS = [
-      { id: 'team-lead', name: 'team-lead', avatar: '🤖', isLead: true, state: 'idle', accent: '#2563eb', inbox: 51 },
-      { id: 'backend-dev', name: 'backend-dev', avatar: '👨‍💻', isLead: false, state: 'working', accent: '#0891b2', inbox: 4 },
-      { id: 'qa-engineer', name: 'qa-engineer', avatar: '🧪', isLead: false, state: 'working', accent: '#7c3aed', inbox: 6 },
-      { id: 'reviewer', name: 'reviewer', avatar: '🔍', isLead: false, state: 'working', accent: '#dc2626', inbox: 3 },
-      { id: 'frontend-dev', name: 'frontend-dev', avatar: '👩‍💻', isLead: false, state: 'working', accent: '#16a34a', inbox: 5 }
-    ];
+    /** 璇ヤ細璇濈殑 agentTeam 鎶曞奖锛涙病鏈夊洟闃熸椂涓?undefined銆?*/
+    function readTeam(useSessions, sessionId) {
+      return useSessions(function (state) {
+        if (!sessionId) return undefined;
+        var entry = state.projectionsBySession[sessionId];
+        return entry && entry.values ? entry.values.agentTeam : undefined;
+      });
+    }
 
-    var TASKS = [
-      { id: '1', title: '后端实现: FastAPI', owner: 'backend-dev', status: 'completed', blockedBy: [] },
-      { id: '2', title: '前端实现: React+Vite', owner: 'frontend-dev', status: 'completed', blockedBy: [] },
-      { id: '3', title: 'QA 阶段一: 契约一致性测试套件', owner: 'qa-engineer', status: 'completed', blockedBy: ['1'] },
-      { id: '4', title: 'QA 阶段二: 端到端验证与缺陷报', owner: 'qa-engineer', status: 'in_progress', blockedBy: ['1'] },
-      { id: '5', title: '审阅: 代码质量 + UI/UX 与无障碍', owner: 'reviewer', status: 'in_progress', blockedBy: ['2'] },
-      { id: '6', title: '集成验收与交付 (team-lead)', owner: 'team-lead', status: 'pending', blockedBy: ['4', '5'] }
-    ];
+    /** 鎴愬憳鐨勫疄鏃惰繍琛岀姸鎬侊紙turn 鏄惁鍦ㄨ窇锛夈€?*/
+    function readRunning(useSessionStatus, memberId) {
+      return useSessionStatus(function (state) {
+        var row = state.get(memberId);
+        return row ? row.running === true : false;
+      });
+    }
 
-    var MESSAGES = [
-      { from: 'frontend-dev', avatar: '👩‍💻', text: 'P1 已修，mobile.png 已部署到 review', time: '17:15', long: false },
-      { from: 'frontend-dev', avatar: '👩‍💻', text: '修法（选了方案二，保留信息）：TaskRow 的 wrap 移动，sm 以上恢复 flex-row', time: '17:15', long: true },
-      { from: 'team-lead', avatar: '🤖', text: '展示：后端 8000 已停（连接拒绝），QA/reviewer 等会连不上真实接口', time: '17:15', long: false },
-      { from: 'frontend-dev', avatar: '👩‍💻', text: '你抓到的真实 bug，已修复。拆成两层说清楚：【已修复】行标题 overdue 判定与契约不一致', time: '17:14', long: true },
-      { from: 'team-lead', avatar: '🤖', text: 'QA 的 P1-2（拖拽不流畅）我核实了，它的根因分析正确', time: '17:14', long: false }
-    ];
+    /* 鎴愬憳閰嶈壊锛氭寜鍚嶅唽椤哄簭鍙栬壊锛屼繚璇佸悓涓€鎴愬憳鍦ㄤ笉鍚屼細璇濋噷棰滆壊绋冲畾銆?*/
+    var ACCENTS = ['#2563eb', '#0891b2', '#7c3aed', '#dc2626', '#16a34a', '#d97706', '#db2777', '#0d9488'];
+
+    /* 绌鸿繍琛屾€佸父閲忥細閫夋嫨鍣ㄨ繑鍥炵ǔ瀹氬紩鐢紝閬垮厤姣忔娓叉煋閮借Е鍙戞洿鏂般€?*/
+    var EMPTY_RUNNING = {};
+
+    /* 澶村儚锛氶槦闀垮浐瀹氾紝鍏朵綑鎸夎鑹插悕鍏抽敭璇嶆寫涓€涓紝鎸戜笉鍒板氨鎸夊簭鍙疯疆鎹€?*/
+    var AVATARS = ['🤖', '👨‍💻', '🧪', '🔍', '👩‍💻', '🎨', '📦', '🛠️'];
+    function avatarFor(name, isLead, index) {
+      if (isLead) return '馃';
+      var lower = String(name || '').toLowerCase();
+      if (lower.indexOf('qa') >= 0 || lower.indexOf('test') >= 0) return '馃И';
+      if (lower.indexOf('review') >= 0) return '馃攳';
+      if (lower.indexOf('front') >= 0 || lower.indexOf('ui') >= 0) return '👩‍💻';
+      if (lower.indexOf('back') >= 0 || lower.indexOf('server') >= 0) return '👨‍💻';
+      return AVATARS[(index + 1) % AVATARS.length];
+    }
+
+    /**
+     * 鎶婃姇褰辨媿骞虫垚鐢诲竷鐢ㄧ殑鎴愬憳鏁扮粍銆?     *
+     * 鎶曞奖閲岀殑 phase 鏄?provisioning / active / failed锛涚敾甯冭繕瑕佸尯鍒?     * 銆屽湪璺戙€嶅拰銆岀┖闂层€嶏紝鍚庤€呮潵鑷垚鍛樹細璇濈殑 running 鏍囧織锛坮unningMap锛夈€?     */
+    function projectMembers(team, runningMap) {
+      if (!team || !Array.isArray(team.members)) return [];
+      return team.members.map(function (member, index) {
+        var isLead = index === 0 || member.id === team.leadSessionId;
+        var running = Boolean(runningMap && runningMap[member.id] === true);
+        var state;
+        if (member.phase === 'failed') state = 'error';
+        else if (member.phase === 'provisioning') state = 'retrying';
+        else state = running ? 'working' : 'idle';
+        return {
+          id: member.id,
+          name: member.name || member.id,
+          description: member.description || '',
+          avatar: avatarFor(member.name, isLead, index),
+          accent: ACCENTS[index % ACCENTS.length],
+          isLead: isLead,
+          phase: member.phase,
+          state: state,
+          error: member.error
+        };
+      });
+    }
+
+    /** 鎶婃姇褰遍噷鐨勪换鍔℃媿骞虫垚鐢诲竷鐢ㄧ殑浠诲姟鏁扮粍銆?*/
+    function projectTasks(team) {
+      if (!team || !Array.isArray(team.tasks)) return [];
+      var nameById = {};
+      (team.members || []).forEach(function (m) { nameById[m.id] = m.name || m.id; });
+      return team.tasks
+        .filter(function (task) { return task.status !== 'deleted'; })
+        .map(function (task) {
+          return {
+            id: String(task.id),
+            title: task.subject || task.id,
+            description: task.description || '',
+            owner: task.ownerId ? (nameById[task.ownerId] || task.ownerName || task.ownerId) : (task.ownerName || ''),
+            ownerId: task.ownerId,
+            status: task.status,
+            ready: task.ready,
+            blockedBy: (task.blockedBy || []).map(String),
+            writeScopes: task.writeScopes || []
+          };
+        });
+    }
+
+    /**
+     * 閫氳娑堟伅銆傛姇褰辨殏涓嶆惡甯?mailbox锛坈c-haha 鏄犲皠鏂囨。涔熻鐫€杩欐槸 DSH 缂哄彛锛夛紝
+     * 鎵€浠ヨ繖閲岃繑鍥炵┖鏁扮粍锛岄潰鏉夸細鏄剧ず绌烘€佽€屼笉鏄亣娑堟伅銆?     */
+    function projectMessages(team) {
+      if (!team || !Array.isArray(team.messages)) return [];
+      return team.messages.map(function (msg) {
+        var text = '';
+        if (Array.isArray(msg.content)) {
+          text = msg.content
+            .filter(function (b) { return b && b.type === 'text'; })
+            .map(function (b) { return b.text; })
+            .join(' ');
+        } else if (typeof msg.content === 'string') {
+          text = msg.content;
+        }
+        return {
+          from: msg.senderName || msg.senderId || '',
+          avatar: avatarFor(msg.senderName, false, 0),
+          text: text,
+          time: '',
+          long: text.length > 60
+        };
+      });
+    }
+
+    /** 璇ヤ細璇濇槸鍚︽湁鍥㈤槦锛堝喅瀹氭樉绀虹敾甯冭繕鏄┖鎬侊級銆?*/
+    function hasTeam(team) {
+      return Boolean(team && Array.isArray(team.members) && team.members.length > 0);
+    }
 
     /* ---------------------------------------------------------------- *
-     * 依赖深度：最长依赖路径，带环与缺失节点的确定性兜底
-     * （agentTeamsModel.ts taskDepths 移植）
-     * ---------------------------------------------------------------- */
+     * 渚濊禆娣卞害锛氭渶闀夸緷璧栬矾寰勶紝甯︾幆涓庣己澶辫妭鐐圭殑纭畾鎬у厹搴?     * 锛坅gentTeamsModel.ts taskDepths 绉绘锛?     * ---------------------------------------------------------------- */
     function compareTaskIds(a, b) {
       return String(a).localeCompare(String(b), undefined, { numeric: true });
     }
@@ -100,7 +185,7 @@ window.__ModuleLoader__.load({
     }
 
     /* ---------------------------------------------------------------- *
-     * 任务布局（layoutWorkbenchTasks 移植）：按深度分泳道，泳道内按行堆叠
+     * 浠诲姟甯冨眬锛坙ayoutWorkbenchTasks 绉绘锛夛細鎸夋繁搴﹀垎娉抽亾锛屾吵閬撳唴鎸夎鍫嗗彔
      * ---------------------------------------------------------------- */
     function layoutTasks(tasks, requestedWidth) {
       var sorted = tasks.slice().sort(function (a, b) {
@@ -168,10 +253,10 @@ window.__ModuleLoader__.load({
     }
 
     /* ---------------------------------------------------------------- *
-     * SVG 路径
+     * SVG 璺緞
      * ---------------------------------------------------------------- */
 
-    /** 依赖边：从前置任务右边缘，S 形弯到后继任务左边缘。 */
+    /** 渚濊禆杈癸細浠庡墠缃换鍔″彸杈圭紭锛孲 褰㈠集鍒板悗缁т换鍔″乏杈圭紭銆?*/
     function dependencyPath(from, to) {
       var fromX = from.x + TASK_WIDTH;
       var fromY = from.y + TASK_HEIGHT / 2;
@@ -182,7 +267,7 @@ window.__ModuleLoader__.load({
         + ' C ' + middle + ',' + fromY + ' ' + middle + ',' + toY + ' ' + (toX - 5) + ',' + toY;
     }
 
-    /** 成员 → 正在执行的任务：从成员脚下弯到任务顶部。 */
+    /** 鎴愬憳 鈫?姝ｅ湪鎵ц鐨勪换鍔★細浠庢垚鍛樿剼涓嬪集鍒颁换鍔￠《閮ㄣ€?*/
     function cubicTether(memberX, task) {
       var taskX = task.x + TASK_WIDTH / 2;
       return 'M ' + memberX + ',' + MEMBER_FOOT
@@ -197,7 +282,7 @@ window.__ModuleLoader__.load({
     }
 
     /* ---------------------------------------------------------------- *
-     * 样式
+     * 鏍峰紡
      * ---------------------------------------------------------------- */
     var CSS = ''
       + '.tc-root{--tc-bg:var(--dsw-alias-bg-layer-1,#fff);'
@@ -303,10 +388,14 @@ window.__ModuleLoader__.load({
       + '.tc-unlock{animation:tc-unlock 1.4s ease-in-out 2}';
 
     /* ---------------------------------------------------------------- *
-     * 组件
+     * 缁勪欢
      * ---------------------------------------------------------------- */
     function TeamCanvas(props) {
       var t = props.t;
+      var sessionId = props.sessionId;
+      var useSessions = props.useSessions;
+      var useSessionStatus = props.useSessionStatus;
+
       var openPair = React.useState(false);
       var open = openPair[0];
       var setOpen = openPair[1];
@@ -315,14 +404,39 @@ window.__ModuleLoader__.load({
       var expanded = expandedPair[0];
       var setExpanded = expandedPair[1];
 
+      /* ---- 鏈細璇濈殑鎶曞奖 ---- */
+      var team = useSessions(function (state) {
+        if (!sessionId) return undefined;
+        var entry = state.projectionsBySession[sessionId];
+        return entry && entry.values ? entry.values.agentTeam : undefined;
+      });
+
+      /* 鎴愬憳杩愯鎬侊細涓€娆￠€夋嫨鍣ㄨ瀹屾墍鏈夋垚鍛樹細璇濈殑 running 鏍囧織銆?*/
+      var runningMap = useSessions(function (state) {
+        if (!team || !Array.isArray(team.members)) return EMPTY_RUNNING;
+        var map = {};
+        team.members.forEach(function (member) {
+          var row = state.byId[member.id];
+          map[member.id] = row ? row.running === true : false;
+        });
+        return map;
+      });
+
+      var members = React.useMemo(function () {
+        return projectMembers(team, runningMap);
+      }, [team, runningMap]);
+
+      var tasks = React.useMemo(function () { return projectTasks(team); }, [team]);
+      var messages = React.useMemo(function () { return projectMessages(team); }, [team]);
+
       var layout = React.useMemo(function () {
-        return layoutTasks(TASKS, 0);
-      }, []);
+        return layoutTasks(tasks, 0);
+      }, [tasks]);
 
       var memberPositions = React.useMemo(function () {
         var lead = null;
         var workers = [];
-        MEMBERS.forEach(function (m) {
+        members.forEach(function (m) {
           if (m.isLead) lead = m; else workers.push(m);
         });
         var centerX = layout.width / 2;
@@ -336,20 +450,20 @@ window.__ModuleLoader__.load({
           list.push({ member: m, isLead: false, centerX: first + i * MEMBER_PITCH, top: MEMBER_TOP });
         });
         return list;
-      }, [layout.width]);
+      }, [members, layout.width]);
 
       var stats = React.useMemo(function () {
-        var completed = TASKS.filter(function (x) { return x.status === 'completed'; }).length;
-        var running = TASKS.filter(function (x) { return x.status === 'in_progress'; }).length;
-        var pending = TASKS.filter(function (x) { return x.status === 'pending' || x.status === 'blocked'; }).length;
-        var working = MEMBERS.filter(function (m) { return m.state === 'working'; }).length;
+        var completed = tasks.filter(function (x) { return x.status === 'completed'; }).length;
+        var running = tasks.filter(function (x) { return x.status === 'in_progress'; }).length;
+        var pending = tasks.filter(function (x) { return x.status === 'pending'; }).length;
+        var working = members.filter(function (m) { return m.state === 'working'; }).length;
         return {
           completed: completed,
           running: running,
           pending: pending,
-          parallel: working + '/' + MEMBERS.length
+          parallel: working + '/' + members.length
         };
-      }, []);
+      }, [tasks, members]);
 
       var maxDepth = 0;
       layout.lanes.forEach(function (lane) { maxDepth = Math.max(maxDepth, lane.depth); });
@@ -362,12 +476,12 @@ window.__ModuleLoader__.load({
         });
       }
 
-      /* ---------- 顶部条 ---------- */
+      /* ---------- 椤堕儴鏉?---------- */
       var bar = h('div', { className: 'tc-bar' },
         h('h3', null,
           h('span', { style: { fontSize: '15px' } }, '🤖'),
           t('title'),
-          h('span', { className: 'tc-tag' }, TEAM_NAME),
+          h('span', { className: 'tc-tag' }, team && team.teamName ? team.teamName : t('title')),
           h('span', { className: 'tc-tag warn' }, t('experimental'))
         ),
         h('span', { className: 'grow' }),
@@ -382,7 +496,17 @@ window.__ModuleLoader__.load({
         );
       }
 
-      /* ---------- 统计条 ---------- */
+      /* 本会话没有团队：直接给空态，不画假数据。 */
+      if (!hasTeam(team)) {
+        return h('div', { className: 'tc-root' },
+          h('style', null, CSS),
+          bar,
+          h('div', { className: 'tc-empty' }, t('empty'))
+        );
+      }
+
+
+      /* ---------- 缁熻鏉?---------- */
       var summary = h('div', { className: 'tc-sum' },
         h('div', null, h('b', null, stats.parallel), h('span', null, t('parallel'))),
         h('div', null, h('b', null, stats.completed), h('span', null, t('completed'))),
@@ -390,10 +514,10 @@ window.__ModuleLoader__.load({
         h('div', null, h('b', null, stats.pending), h('span', null, t('pending')))
       );
 
-      /* ---------- SVG 层：所有连线 ---------- */
+      /* ---------- SVG 灞傦細鎵€鏈夎繛绾?---------- */
       var svgChildren = [];
 
-      // 泳道底板
+      // 娉抽亾搴曟澘
       layout.lanes.forEach(function (lane, index) {
         svgChildren.push(h('rect', {
           key: 'lane-' + lane.depth,
@@ -414,7 +538,7 @@ window.__ModuleLoader__.load({
         }));
       });
 
-      // 队长 → 成员总线
+      // 闃熼暱 鈫?鎴愬憳鎬荤嚎
       var leadPos = memberPositions[0];
       var workerPos = memberPositions.slice(1);
       if (leadPos && workerPos.length > 0) {
@@ -438,7 +562,7 @@ window.__ModuleLoader__.load({
         });
       }
 
-      // 成员之间 peer 总线
+      // 鎴愬憳涔嬮棿 peer 鎬荤嚎
       if (workerPos.length > 1) {
         svgChildren.push(h('path', {
           key: 'peer-bus',
@@ -457,14 +581,14 @@ window.__ModuleLoader__.load({
         });
       }
 
-      // ★ 任务依赖连线：每个 blockedBy 一条贝塞尔曲线 + 终点圆点
+      // 鈽?浠诲姟渚濊禆杩炵嚎锛氭瘡涓?blockedBy 涓€鏉¤礉濉炲皵鏇茬嚎 + 缁堢偣鍦嗙偣
       layout.tasks.forEach(function (to) {
         to.task.blockedBy.forEach(function (depId) {
           var from = layout.byId.get(depId);
           if (!from) return;
           var satisfied = from.task.status === 'completed';
           var owner = null;
-          MEMBERS.forEach(function (m) { if (m.id === from.task.owner) owner = m; });
+          members.forEach(function (m) { if (m.id === from.task.owner) owner = m; });
           var color = satisfied
             ? (owner ? owner.accent : 'var(--tc-text2)')
             : 'var(--tc-line)';
@@ -488,7 +612,7 @@ window.__ModuleLoader__.load({
         });
       });
 
-      // ★ 成员 → 正在执行的任务（tether）
+      // 鈽?鎴愬憳 鈫?姝ｅ湪鎵ц鐨勪换鍔★紙tether锛?
       layout.tasks.forEach(function (p) {
         if (p.task.status !== 'in_progress') return;
         var mp = null;
@@ -512,21 +636,21 @@ window.__ModuleLoader__.load({
         'aria-hidden': 'true'
       }, svgChildren);
 
-      /* ---------- 区块标题 ---------- */
+      /* ---------- 鍖哄潡鏍囬 ---------- */
       var titles = [
         h('div', {
           key: 'title-team',
           className: 'tc-sectitle',
           style: { top: FORMATION_TITLE_Y + 'px' }
-        }, '1 · ' + t('team') + ' · ' + t('teamHint')),
+        }, '1 路 ' + t('team') + ' 路 ' + t('teamHint')),
         h('div', {
           key: 'title-tasks',
           className: 'tc-sectitle',
           style: { top: TASKS_TITLE_Y + 'px' }
-        }, '2 · ' + t('tasks') + ' · ' + t('tasksHint'))
+        }, '2 路 ' + t('tasks') + ' 路 ' + t('tasksHint'))
       ];
 
-      /* ---------- 泳道标题 ---------- */
+      /* ---------- 娉抽亾鏍囬 ---------- */
       var laneTitles = layout.lanes.map(function (lane) {
         var label = lane.depth === 0
           ? t('laneNoDeps')
@@ -543,9 +667,9 @@ window.__ModuleLoader__.load({
         }, label, h('em', null, done + '/' + lane.count));
       });
 
-      /* ---------- 成员卡片 ---------- */
+      /* ---------- 鎴愬憳鍗＄墖 ---------- */
       var memberCards = memberPositions.map(function (p) {
-        var owned = TASKS.filter(function (x) { return x.owner === p.member.id; });
+        var owned = tasks.filter(function (x) { return x.owner === p.member.id; });
         var chips = owned.slice(-3).map(function (x) {
           return h('span', {
             key: 'chip-' + x.id,
@@ -553,7 +677,7 @@ window.__ModuleLoader__.load({
           }, '#' + x.id);
         });
         var stateText = p.isLead
-          ? t('coordinating') + ' · ' + t('inbox') + ' ' + p.member.inbox
+          ? t('coordinating') + ' 路 ' + t('inbox') + ' ' + p.member.inbox
           : (p.member.state === 'working' ? t('stateWorking') : t('stateIdle'));
         return h('div', {
           key: 'member-' + p.member.id,
@@ -577,7 +701,7 @@ window.__ModuleLoader__.load({
         );
       });
 
-      /* ---------- 任务卡片 ---------- */
+      /* ---------- 浠诲姟鍗＄墖 ---------- */
       var statusLabel = {
         completed: t('taskCompleted'),
         in_progress: t('taskInProgress'),
@@ -593,7 +717,7 @@ window.__ModuleLoader__.load({
 
       var taskCards = layout.tasks.map(function (p) {
         var owner = null;
-        MEMBERS.forEach(function (m) { if (m.id === p.task.owner) owner = m; });
+        members.forEach(function (m) { if (m.id === p.task.owner) owner = m; });
         var cls = statusClass[p.task.status] || '';
         return h('div', {
           key: 'task-' + p.task.id,
@@ -604,7 +728,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'tc-tnum' }, '#' + p.task.id),
           h('div', { className: 'tc-ttitle' }, p.task.title),
           h('div', { className: 'tc-towner' },
-            h('span', null, owner ? owner.avatar : '👤'),
+            h('span', null, owner ? owner.avatar : '馃懁'),
             p.task.owner
           )
         );
@@ -615,7 +739,7 @@ window.__ModuleLoader__.load({
         style: { width: layout.width + 'px', height: layout.height + 'px' }
       }, [svg].concat(titles, laneTitles, memberCards, taskCards));
 
-      /* ---------- 图例 ---------- */
+      /* ---------- 鍥句緥 ---------- */
       function legendLine(color, dash, width) {
         return h('svg', { width: 26, height: 6 },
           h('path', {
@@ -636,8 +760,8 @@ window.__ModuleLoader__.load({
         h('i', null, legendLine('var(--tc-text3)', '4 7'), t('legendFlight'))
       );
 
-      /* ---------- 通讯面板 ---------- */
-      var messages = MESSAGES.map(function (msg, index) {
+      /* ---------- 閫氳闈㈡澘 ---------- */
+      var messageNodes = messages.map(function (msg, index) {
         var isExpanded = expanded[index] === true;
         return h('div', { key: 'msg-' + index, className: 'tc-msg' },
           h('div', { className: 'mh' },
@@ -654,13 +778,13 @@ window.__ModuleLoader__.load({
       });
 
       var chat = h('div', { className: 'tc-chat' },
-        h('h4', null, h('span', null, t('communication')), h('em', null, MESSAGES.length + ' ' + t('messages'))),
+        h('h4', null, h('span', null, t('communication')), h('em', null, messages.length + ' ' + t('messages'))),
         h('div', { className: 'tc-tabs' },
           h('button', { type: 'button', className: 'on' }, t('tabAll')),
           h('button', { type: 'button' }, t('tabReports')),
           h('button', { type: 'button' }, t('tabMessages'))
         ),
-        h('div', { className: 'tc-msgs' }, messages)
+        h('div', { className: 'tc-msgs' }, messageNodes)
       );
 
       return h('div', { className: 'tc-root' },
@@ -676,7 +800,7 @@ window.__ModuleLoader__.load({
     }
 
     /* ---------------------------------------------------------------- *
-     * 插件入口
+     * 鎻掍欢鍏ュ彛
      * ---------------------------------------------------------------- */
     var NS = 'team-canvas';
     var ZH = {
@@ -693,6 +817,8 @@ window.__ModuleLoader__.load({
       laneFinal: '收尾',
       stateWorking: '工作中',
       stateIdle: '空闲',
+      stateRetrying: '重试中',
+      stateError: '出错',
       taskCompleted: '完成',
       taskInProgress: '执行中',
       taskBlocked: '阻塞',
@@ -714,11 +840,14 @@ window.__ModuleLoader__.load({
       legendUnlocked: '刚解锁',
       legendFlight: '飞行中的消息/认领',
       inbox: '收件箱',
-      coordinating: '协调 · 等待汇报'
+      coordinating: '协调 · 等待汇报',
+      empty: '当前会话还没有 Agent Teams 团队。',
+      noTasks: '这个团队还没有共享任务。',
+      noMessages: '投影暂不包含团队消息。'
     };
 
     return {
-      inject: ['slots', 'locale'],
+      inject: ['slots', 'locale', 'sessions'],
       apply: function (ctx) {
         ctx.effect(function () {
           return ctx.locale.register(NS, 'zh', ZH);
@@ -734,8 +863,13 @@ window.__ModuleLoader__.load({
             name: 'conversation.input.dock',
             id: 'team-canvas',
             order: 60
-          }, function () {
-            return h(TeamCanvas, { t: t });
+          }, function (props) {
+            return h(TeamCanvas, {
+              t: t,
+              sessionId: props.sessionId,
+              useSessions: props.useSessions,
+              useSessionStatus: props.useSessionStatus
+            });
           });
         });
       }
