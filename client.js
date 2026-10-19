@@ -307,6 +307,8 @@ window.__ModuleLoader__.load({
       + 'border-radius:6px;padding:3px 10px;font:inherit;font-size:11px;font-weight:600;cursor:pointer}'
       + '.tc-btn:hover{border-color:var(--tc-strong)}'
       + '.tc-btn.primary{background:var(--tc-accent);border-color:var(--tc-accent);color:#fff}'
+      + '.tc-select{border:1px solid var(--tc-line);background:var(--tc-bg);color:var(--tc-text);'
+      + 'border-radius:6px;padding:2px 6px;font:inherit;font-size:10px;max-width:190px}'
       + '.tc-sum{display:flex;border-bottom:1px solid var(--tc-line);background:var(--tc-bg2)}'
       + '.tc-sum div{flex:1;padding:6px 8px;text-align:center;border-right:1px solid var(--tc-line)}'
       + '.tc-sum div:last-child{border-right:none}'
@@ -403,12 +405,45 @@ window.__ModuleLoader__.load({
       var expanded = expandedPair[0];
       var setExpanded = expandedPair[1];
 
+      /* 手动选择的团队（null = 自动归属） */
+      var manualPair = React.useState(null);
+      var manualTeam = manualPair[0];
+      var setManualTeam = manualPair[1];
+
       /* ---- 鏈細璇濈殑鎶曞奖 ---- */
-      var team = useSessions(function (state) {
-        if (!sessionId) return undefined;
-        var entry = state.projectionsBySession[sessionId];
+      /* 团队归属解析：先看自己，再看所属团队，最后看手动选择。
+       * 默认隔离：只看自己的团队；若自己没有，则回退到唯一可见的团队（共享）。 */
+      var teamScan = useSessions(function (state) {
+        var map = (state && state.projectionsBySession) || {};
+        var selfId = sessionId ? String(sessionId) : null;
+        var self = selfId && map[selfId] && map[selfId].values ? map[selfId].values.agentTeam : undefined;
+        var teams = [];
+        for (var id in map) {
+          var at = map[id] && map[id].values ? map[id].values.agentTeam : undefined;
+          if (!at) continue;
+          var taskCount = at.tasks ? at.tasks.length : 0;
+          var memberCount = at.members ? at.members.length : 0;
+          if (taskCount === 0 && memberCount <= 1) continue;
+          teams.push({ sessionId: String(id), taskCount: taskCount, memberCount: memberCount });
+        }
+        var sig = selfId + "|" + teams.map(function (x) { return x.sessionId + ":" + x.taskCount; }).join(",");
+        return { selfId: selfId, selfTasks: self && self.tasks ? self.tasks.length : 0, selfMembers: self && self.members ? self.members.length : 0, teams: teams, sig: sig };
+      });
+
+      var pickedTeam = useSessions(function (state) {
+        var map = (state && state.projectionsBySession) || {};
+        var scan = teamScan || {};
+        var want = manualTeam;
+        if (!want) {
+          if ((scan.selfTasks || 0) > 0 || (scan.selfMembers || 0) > 1) want = scan.selfId;
+          else if (scan.teams && scan.teams.length > 0) want = scan.teams[0].sessionId;
+        }
+        if (!want) return undefined;
+        var entry = map[want];
         return entry && entry.values ? entry.values.agentTeam : undefined;
       });
+
+      var team = pickedTeam;
 
       /* 鎴愬憳杩愯鎬侊細涓€娆￠€夋嫨鍣ㄨ瀹屾墍鏈夋垚鍛樹細璇濈殑 running 鏍囧織銆?*/
       // Selector returns a primitive so the store can compare it cheaply.
@@ -494,6 +529,20 @@ window.__ModuleLoader__.load({
           h('span', { className: 'tc-tag' }, team && team.teamName ? team.teamName : t('title')),
           h('span', { className: 'tc-tag warn' }, t('experimental'))
         ),
+        /* 团队切换器：默认自动归属，可手动选择看哪个团队（实现隔离与共享）。 */
+        (teamScan && teamScan.teams && teamScan.teams.length > 1)
+          ? h('select', {
+              className: 'tc-select',
+              value: manualTeam || '',
+              onChange: function (e) { setManualTeam(e.target.value || null); }
+            },
+            h('option', { value: '' }, t('autoPick')),
+            teamScan.teams.map(function (x) {
+              return h('option', { key: x.sessionId, value: x.sessionId },
+                String(x.sessionId).slice(0, 14) + ' · ' + x.taskCount + ' ' + t('tasksShort'));
+            })
+          )
+          : null,
         h('span', { className: 'grow' }),
         h('button', { type: 'button', className: 'tc-btn', onClick: function () { setOpen(!open); } },
           open ? t('close') : t('openPanel'))
@@ -851,6 +900,8 @@ window.__ModuleLoader__.load({
       legendFlight: '飞行中的消息/认领',
       inbox: '收件箱',
       coordinating: '协调 · 等待汇报',
+      autoPick: '自动归属',
+      tasksShort: '任务',
       empty: '当前会话还没有 Agent Teams 团队。',
       noTasks: '这个团队还没有共享任务。',
       noMessages: '投影暂不包含团队消息。'
