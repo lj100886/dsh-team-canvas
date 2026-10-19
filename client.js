@@ -413,31 +413,36 @@ window.__ModuleLoader__.load({
       /* ---- 鏈細璇濈殑鎶曞奖 ---- */
       /* 团队归属解析：先看自己，再看所属团队，最后看手动选择。
        * 默认隔离：只看自己的团队；若自己没有，则回退到唯一可见的团队（共享）。 */
+      /* 严格隔离：只读当前会话自己的 agentTeam 投影。
+       * 其他会话的团队不会混进来。
+       * manualTeam 仅在用户从下拉框显式选择时生效。 */
       var teamScan = useSessions(function (state) {
         var map = (state && state.projectionsBySession) || {};
         var selfId = sessionId ? String(sessionId) : null;
         var self = selfId && map[selfId] && map[selfId].values ? map[selfId].values.agentTeam : undefined;
+        // 可供下拉框选择的团队（仅作为显式共享入口）
         var teams = [];
         for (var id in map) {
           var at = map[id] && map[id].values ? map[id].values.agentTeam : undefined;
           if (!at) continue;
           var taskCount = at.tasks ? at.tasks.length : 0;
-          var memberCount = at.members ? at.members.length : 0;
-          if (taskCount === 0 && memberCount <= 1) continue;
-          teams.push({ sessionId: String(id), taskCount: taskCount, memberCount: memberCount });
+          if (taskCount === 0) continue;
+          teams.push({ sessionId: String(id), taskCount: taskCount });
         }
-        var sig = selfId + "|" + teams.map(function (x) { return x.sessionId + ":" + x.taskCount; }).join(",");
-        return { selfId: selfId, selfTasks: self && self.tasks ? self.tasks.length : 0, selfMembers: self && self.members ? self.members.length : 0, teams: teams, sig: sig };
+        return {
+          selfId: selfId,
+          selfTasks: self && self.tasks ? self.tasks.length : 0,
+          selfMembers: self && self.members ? self.members.length : 0,
+          teams: teams,
+          sig: selfId + "|" + teams.map(function (x) { return x.sessionId + ":" + x.taskCount; }).join(",")
+        };
       });
 
       var pickedTeam = useSessions(function (state) {
         var map = (state && state.projectionsBySession) || {};
         var scan = teamScan || {};
-        var want = manualTeam;
-        if (!want) {
-          if ((scan.selfTasks || 0) > 0 || (scan.selfMembers || 0) > 1) want = scan.selfId;
-          else if (scan.teams && scan.teams.length > 0) want = scan.teams[0].sessionId;
-        }
+        // 默认：只看自己。不回退到别的会话。
+        var want = manualTeam || scan.selfId;
         if (!want) return undefined;
         var entry = map[want];
         return entry && entry.values ? entry.values.agentTeam : undefined;
