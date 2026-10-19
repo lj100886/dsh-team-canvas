@@ -383,6 +383,16 @@ window.__ModuleLoader__.load({
       + '.tc-msg .me{display:inline-block;margin:3px 0 0 19px;font-size:9px;font-weight:500;'
       + 'padding:1px 6px;border-radius:4px;background:rgba(57,100,254,.09);color:var(--tc-accent);cursor:pointer}'
       + '.tc-empty{padding:28px;text-align:center;color:var(--tc-text3);font-size:12px}'
+      + '.tc-todolist{padding:10px 14px;max-height:420px;overflow:auto}'
+      + '.tc-todotitle{font-size:11px;font-weight:600;color:var(--tc-text3);margin-bottom:8px}'
+      + '.tc-todo{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;margin-bottom:4px;'
+      + 'border-radius:6px;background:var(--tc-bg2);font-size:12px;line-height:1.45}'
+      + '.tc-todo-mark{flex:none;font-size:10px;color:var(--tc-text3);margin-top:2px}'
+      + '.tc-todo-text{flex:1;min-width:0;color:var(--tc-text)}'
+      + '.tc-todo-completed .tc-todo-text{color:var(--tc-text3);text-decoration:line-through}'
+      + '.tc-todo-completed .tc-todo-mark{color:var(--tc-ok)}'
+      + '.tc-todo-in_progress .tc-todo-mark{color:var(--tc-accent)}'
+      + '.tc-todo-in_progress{border-left:2px solid var(--tc-accent)}'
       + '@keyframes tc-flow{to{stroke-dashoffset:-28}}'
       + '.tc-flow{animation:tc-flow 1.1s linear infinite}'
       + '@keyframes tc-unlock{0%,100%{opacity:1}50%{opacity:.45}}'
@@ -449,6 +459,16 @@ window.__ModuleLoader__.load({
       });
 
       var team = pickedTeam;
+
+      /* 当前会话的 todos 投影：没有 Agent Teams 团队时，面板改显示真实工作清单。 */
+      var todos = useSessions(function (state) {
+        var map = (state && state.projectionsBySession) || {};
+        var id = sessionId ? String(sessionId) : null;
+        if (!id) return null;
+        var entry = map[id];
+        var list = entry && entry.values ? entry.values.todos : null;
+        return Array.isArray(list) ? list : null;
+      });
 
       /* 鎴愬憳杩愯鎬侊細涓€娆￠€夋嫨鍣ㄨ瀹屾墍鏈夋垚鍛樹細璇濈殑 running 鏍囧織銆?*/
       // Selector returns a primitive so the store can compare it cheaply.
@@ -561,11 +581,38 @@ window.__ModuleLoader__.load({
       }
 
       /* 本会话没有团队：直接给空态，不画假数据。 */
-      if (!hasTeam(team)) {
+      /* 没有 Agent Teams 团队时：若本会话有工作清单，展示它；否则真空态。 */
+      if (!team || !Array.isArray(team.tasks) || team.tasks.length === 0) {
+        var todoItems = Array.isArray(todos) ? todos : [];
+        if (todoItems.length === 0) {
+          return h('div', { className: 'tc-root' },
+            h('style', null, CSS),
+            bar,
+            h('div', { className: 'tc-empty' }, t('empty'))
+          );
+        }
+        var todoDone = todoItems.filter(function (x) { return x.status === 'completed'; }).length;
+        var todoActive = todoItems.filter(function (x) { return x.status === 'in_progress'; }).length;
+        var todoPending = todoItems.filter(function (x) { return x.status === 'pending'; }).length;
         return h('div', { className: 'tc-root' },
           h('style', null, CSS),
           bar,
-          h('div', { className: 'tc-empty' }, t('empty'))
+          h('div', { className: 'tc-sum' },
+            h('div', null, h('b', null, todoActive + '/' + todoItems.length), h('span', null, t('inProgress'))),
+            h('div', null, h('b', null, todoDone), h('span', null, t('completed'))),
+            h('div', null, h('b', null, todoPending), h('span', null, t('pending'))),
+            h('div', null, h('b', null, todoItems.length), h('span', null, t('todosTotal')))
+          ),
+          h('div', { className: 'tc-todolist' },
+            h('div', { className: 'tc-todotitle' }, t('workItems')),
+            todoItems.map(function (item, index) {
+              var st = item.status || 'pending';
+              return h('div', { key: 'todo-' + index, className: 'tc-todo tc-todo-' + st },
+                h('span', { className: 'tc-todo-mark' }, st === 'completed' ? '\u2713' : st === 'in_progress' ? '\u25b6' : '\u25cb'),
+                h('span', { className: 'tc-todo-text' }, item.content || '')
+              );
+            })
+          )
         );
       }
 
@@ -906,8 +953,10 @@ window.__ModuleLoader__.load({
       inbox: '收件箱',
       coordinating: '协调 · 等待汇报',
       autoPick: '自动归属',
+      todosTotal: '总计',
+      workItems: '本会话工作清单',
       tasksShort: '任务',
-      empty: '当前会话还没有 Agent Teams 团队。',
+      empty: '当前会话还没有团队也没有工作清单。用 todo_write 或 spawn_teammate 后这里会显示。',
       noTasks: '这个团队还没有共享任务。',
       noMessages: '投影暂不包含团队消息。'
     };
