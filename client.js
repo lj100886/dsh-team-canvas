@@ -66,10 +66,10 @@ window.__ModuleLoader__.load({
     /* 澶村儚锛氶槦闀垮浐瀹氾紝鍏朵綑鎸夎鑹插悕鍏抽敭璇嶆寫涓€涓紝鎸戜笉鍒板氨鎸夊簭鍙疯疆鎹€?*/
     var AVATARS = ['🤖', '👨‍💻', '🧪', '🔍', '👩‍💻', '🎨', '📦', '🛠️'];
     function avatarFor(name, isLead, index) {
-      if (isLead) return '馃';
+      if (isLead) return '🤖';
       var lower = String(name || '').toLowerCase();
-      if (lower.indexOf('qa') >= 0 || lower.indexOf('test') >= 0) return '馃И';
-      if (lower.indexOf('review') >= 0) return '馃攳';
+      if (lower.indexOf('qa') >= 0 || lower.indexOf('test') >= 0) return '🧪';
+      if (lower.indexOf('review') >= 0) return '🔍';
       if (lower.indexOf('front') >= 0 || lower.indexOf('ui') >= 0) return '👩‍💻';
       if (lower.indexOf('back') >= 0 || lower.indexOf('server') >= 0) return '👨‍💻';
       return AVATARS[(index + 1) % AVATARS.length];
@@ -787,7 +787,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'tc-tnum' }, '#' + p.task.id),
           h('div', { className: 'tc-ttitle' }, p.task.title),
           h('div', { className: 'tc-towner' },
-            h('span', null, owner ? owner.avatar : '馃懁'),
+            h('span', null, owner ? owner.avatar : '👤'),
             p.task.owner
           )
         );
