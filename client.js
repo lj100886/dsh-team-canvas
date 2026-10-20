@@ -59,8 +59,18 @@ window.__ModuleLoader__.load({
       });
     }
 
-    /* 鎴愬憳閰嶈壊锛氭寜鍚嶅唽椤哄簭鍙栬壊锛屼繚璇佸悓涓€鎴愬憳鍦ㄤ笉鍚屼細璇濋噷棰滆壊绋冲畾銆?*/
-    var ACCENTS = ['#2563eb', '#0891b2', '#7c3aed', '#dc2626', '#16a34a', '#d97706', '#db2777', '#0d9488'];
+    /* 成员配色：按名册顺序取色，保证同一成员在不同会话里颜色稳定。
+     *
+     * 这是身份色，不是主题色：八名成员要能一眼分辨，而宿主只给了一个强调色
+     * token，凑不出八个可区分的值。所以色相是固定的（稳定可辨识），饱和度与
+     * 明度则由 --tc-accent 决定 —— 色板写进 .tc-root 的 CSS 变量（见 style
+     * 里的 --tc-m0..--tc-m7），亮暗主题切换时跟着走。
+     *
+     * 为什么不是内联 color-mix()：accent 同时用于 SVG 的 stroke 表现属性
+     * （成员→任务的 tether），表现属性只接受颜色值，不接受 CSS 函数，写
+     * color-mix() 会让那条连线整条失效。CSS 变量则两处都认。 */
+    var ACCENT_HUES = [221, 190, 262, 0, 142, 32, 330, 174];
+    var ACCENTS = ACCENT_HUES.map(function (_, i) { return 'var(--tc-m' + i + ')'; });
 
 
     /* 澶村儚锛氶槦闀垮浐瀹氾紝鍏朵綑鎸夎鑹插悕鍏抽敭璇嶆寫涓€涓紝鎸戜笉鍒板氨鎸夊簭鍙疯疆鎹€?*/
@@ -295,6 +305,19 @@ window.__ModuleLoader__.load({
       + '--tc-accent:var(--dsw-alias-state-business-primary,#3964fe);'
       + '--tc-ok:var(--dsw-alias-state-success-primary,#16a34a);'
       + '--tc-warn:var(--dsw-alias-state-warning-primary,#d97706);'
+      /* Member identity colours, index-aligned with ACCENT_HUES. Each keeps its
+       * own hue for recognisability but takes saturation/lightness from the
+       * host accent, so light and dark themes both stay legible. Declared here
+       * (not inline) because SVG's stroke presentation attribute rejects
+       * color-mix() — see the ACCENTS comment. */
+      + '--tc-m0:color-mix(in oklab,hsl(221 72% 48%) 72%,var(--tc-accent));'
+      + '--tc-m1:color-mix(in oklab,hsl(190 72% 48%) 72%,var(--tc-accent));'
+      + '--tc-m2:color-mix(in oklab,hsl(262 72% 48%) 72%,var(--tc-accent));'
+      + '--tc-m3:color-mix(in oklab,hsl(0 72% 48%) 72%,var(--tc-accent));'
+      + '--tc-m4:color-mix(in oklab,hsl(142 72% 48%) 72%,var(--tc-accent));'
+      + '--tc-m5:color-mix(in oklab,hsl(32 72% 48%) 72%,var(--tc-accent));'
+      + '--tc-m6:color-mix(in oklab,hsl(330 72% 48%) 72%,var(--tc-accent));'
+      + '--tc-m7:color-mix(in oklab,hsl(174 72% 48%) 72%,var(--tc-accent));'
       + 'border:1px solid var(--tc-line);border-radius:12px;background:var(--tc-bg);'
       + 'color:var(--tc-text);font-size:13px;line-height:1.5;overflow:hidden;margin:8px 0}'
       + '.tc-root *{box-sizing:border-box;min-width:0}'
@@ -961,6 +984,57 @@ window.__ModuleLoader__.load({
       noMessages: '投影暂不包含团队消息。'
     };
 
+    /* The English dictionary. Kept key-for-key with ZH above (including the
+     * keys the UI uses but locale/en.json never carried: autoPick, close,
+     * tasksShort, todosTotal, workItems) — a missing key falls through to the
+     * raw id, which reads as a bug rather than as untranslated text. */
+    var EN = {
+      title: 'Agent Teams',
+      experimental: 'Experimental',
+      openPanel: 'Expand panel',
+      close: 'Collapse panel',
+      team: 'Team',
+      teamHint: 'Lead centred, members below',
+      tasks: 'Shared task list',
+      tasksHint: 'Layered by dependency, left → right',
+      laneNoDeps: 'No dependencies · start now',
+      laneDepth: 'Layer {layer}',
+      laneFinal: 'Final',
+      stateWorking: 'Working',
+      stateIdle: 'Idle',
+      stateRetrying: 'Retrying',
+      stateError: 'Error',
+      taskCompleted: 'Done',
+      taskInProgress: 'Running',
+      taskBlocked: 'Blocked',
+      taskPending: 'Pending',
+      parallel: 'Parallel',
+      completed: 'Done',
+      inProgress: 'Running',
+      pending: 'Pending',
+      communication: 'Communication',
+      messages: 'messages',
+      tabAll: 'All',
+      tabReports: 'Reports',
+      tabMessages: 'Messages',
+      expand: 'Expand',
+      collapse: 'Collapse',
+      legendUnsatisfied: 'Dependency open',
+      legendSatisfied: 'Dependency satisfied',
+      legendActive: 'Member is working on this task',
+      legendUnlocked: 'Just unlocked',
+      legendFlight: 'Message / claim in flight',
+      inbox: 'inbox',
+      coordinating: 'Coordinating · awaiting reports',
+      autoPick: 'Auto-assigned',
+      todosTotal: 'Total',
+      workItems: 'This session\'s work items',
+      tasksShort: 'tasks',
+      empty: 'No Agent Teams team or work list in this session yet. Spawn a teammate or use todo_write and they show up here.',
+      noTasks: 'This team has no shared tasks yet.',
+      noMessages: 'The projection does not carry team messages yet.'
+    };
+
     return {
       inject: ['slots', 'locale'],
       apply: function (ctx) {
@@ -968,7 +1042,7 @@ window.__ModuleLoader__.load({
           return ctx.locale.register(NS, 'zh', ZH);
         }, 'dsh-team-canvas: dictionary');
         ctx.effect(function () {
-          return ctx.locale.register(NS, 'en', ZH);
+          return ctx.locale.register(NS, 'en', EN);
         }, 'dsh-team-canvas: dictionary-en');
 
         var t = ctx.locale.bind(NS);

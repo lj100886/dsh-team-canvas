@@ -1,8 +1,11 @@
 {
   "name": "dsh-team-canvas",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Agent Teams 可视化面板 — 泳道看板 + 依赖 DAG 连线 + 通讯流，参考 cc-haha 开源实现",
   "type": "module",
+  "scripts": {
+    "check": "node scripts/check-locale.mjs && node scripts/check-accents.mjs"
+  },
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -22,6 +25,7 @@
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
+    "scripts/*.mjs",
     "icon.svg"
   ],
   "dsh": {

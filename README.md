@@ -110,7 +110,7 @@ dsh plugin --profile desktop add file:/path/to/dsh-team-canvas
 
 ## 主题
 
-只用宿主主题 token，亮色/暗色自动跟随，不写死颜色：
+主体配色全部走宿主主题 token，亮色/暗色自动跟随：
 
 ```
 --dsw-alias-bg-layer-1/2/3     背景层次
@@ -119,6 +119,8 @@ dsh plugin --profile desktop add file:/path/to/dsh-team-canvas
 --dsw-alias-state-business-primary  强调色
 --dsw-alias-state-success-primary   完成态
 ```
+
+**成员身份色是唯一的例外**：八名成员需要能一眼分辨，而宿主只给了一个强调色 token，凑不出八个可区分的值。所以色相固定（保证同一成员跨会话颜色稳定），饱和度与明度通过 `color-mix()` 从 `--tc-accent` 派生，亮暗主题切换时跟着走。这八个值以 `--tc-m0` … `--tc-m7` 声明在样式表里，`client.js` 只引用变量——因为成员色还要喂给 SVG 的 `stroke` 表现属性，而那个位置不接受 `color-mix()` 这类 CSS 函数，写进去会让连线整条消失。
 
 ## 兼容性
 
@@ -132,9 +134,21 @@ dsh plugin --profile desktop add file:/path/to/dsh-team-canvas
 
 ## 当前状态
 
-**已实现**：完整布局引擎、四类 SVG 连线、状态徽章、通讯面板、亮暗主题、i18n（zh/en）。
+**已实现**：完整布局引擎、四类 SVG 连线、状态徽章、通讯面板、亮暗主题、i18n（zh/en，两份词典键位一致）、**实时 Agent Teams 投影接入**。
 
-**未实现**：数据目前是内置演示数据。接真实 Agent Teams 投影（roster + 任务板 + 消息流）是下一步 —— 字段名已按投影结构命名，替换数据源即可。
+数据来自当前会话的 `state.projectionsBySession[sessionId].values.agentTeam` 投影——roster、共享任务、依赖边、执行态都读它。会话里还没有团队时，回退到本会话的 `todo_write` 工作清单；两者都没有才显示空态。
+
+**未接入**：团队消息流。投影目前不携带成员间的通讯记录，通讯面板显示的是占位空态。
+
+## 开发自检
+
+```sh
+node scripts/check-locale.mjs    # zh/en/en.json 键位一致，且覆盖代码用到的全部键
+node scripts/check-accents.mjs   # 成员色只经 var(--tc-mN) 解析，不把 color-mix 写进 stroke
+```
+
+两条都是纯静态检查，不联网、不依赖宿主。
+
 
 ## 致谢
 

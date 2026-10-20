@@ -1,10 +1,9 @@
 {
   "team-canvas": {
     "title": "Agent Teams",
-    "subtitle": "Shared Tasks",
     "experimental": "Experimental",
-    "play": "Play",
-    "openPanel": "Expand",
+    "openPanel": "Expand panel",
+    "close": "Collapse panel",
     "team": "Team",
     "teamHint": "Lead centred, members below",
     "tasks": "Shared task list",
@@ -38,7 +37,11 @@
     "legendFlight": "Message / claim in flight",
     "inbox": "inbox",
     "coordinating": "Coordinating · awaiting reports",
-    "empty": "No Agent Teams team in this session yet. Once you spawn teammates, their roster, tasks and dependency edges appear here.",
+    "autoPick": "Auto-assigned",
+    "todosTotal": "Total",
+    "workItems": "This session's work items",
+    "tasksShort": "tasks",
+    "empty": "No Agent Teams team or work list in this session yet. Spawn a teammate or use todo_write and they show up here.",
     "noTasks": "This team has no shared tasks yet.",
     "noMessages": "The projection does not carry team messages yet."
   }
